@@ -1,0 +1,34 @@
+// Example KQL Rules for Azure Sentinel
+
+// Rule 1: Privilege Escalation Detection
+AuditLogs
+| where ActivityDisplayName == "Add member to role"
+| where Result == "success"
+| extend TargetUser = tostring(TargetResources[0].userPrincipalName)
+| summarize count() by TargetUser, bin(TimeGenerated, 1h)
+| where count_ > 3
+
+// Rule 2: High Rate of 5xx Errors from Services
+AppTraces
+| where Message has "500"
+| summarize errorCount = count() by bin(TimeGenerated, 5m), cloud_RoleName
+| where errorCount > 10
+
+// Rule 3: Large Data Transfer
+AzureDiagnostics
+| where ResourceType == "MICROSOFT.STORAGE/STORAGEACCOUNTS"
+| where OperationName == "GetBlob"
+| summarize TotalSize = sum(toint(Properties['Size'])) by bin(TimeGenerated, 10m), CallerIPAddress
+| where TotalSize > 1000000000 // > 1GB
+
+// Rule 4: Failed Logins
+SigninLogs
+| where ResultType != 0
+| summarize FailedAttempts = count() by bin(TimeGenerated, 10m), UserPrincipalName
+| where FailedAttempts > 5
+
+// Rule 5: Suspicious IP Access
+SigninLogs
+| where Location != "IN"
+| summarize count() by IPAddress, bin(TimeGenerated, 1h)
+| where count_ > 10

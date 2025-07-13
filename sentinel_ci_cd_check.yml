@@ -1,0 +1,25 @@
+name: Validate Sentinel Alerts
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sentinel_alert_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Sentinel for Critical Alerts
+        run: |
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          response=$(az monitor log-analytics query \
+            --workspace ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }} \
+            --analytics-query "SecurityIncident | where TimeGenerated > ago(1h) | where Severity == 'High'" \
+            --query 'tables[0].rows | length(@)' -o tsv)
+          echo "High severity alerts: $response"
+          if [ "$response" -gt 0 ]; then
+            echo "❌ Deployment blocked due to critical Sentinel alerts."
+            exit 1
+          else
+            echo "✅ No critical alerts. Safe to deploy."
+          fi

@@ -1,0 +1,59 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "Post_message_to_Slack": {
+        "inputs": {
+          "body": {
+            "text": "ALERT: Suspicious activity detected by Sentinel."
+          },
+          "method": "POST",
+          "uri": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+        },
+        "runAfter": {},
+        "type": "Http"
+      },
+      "Block_IP_using_Azure_Firewall": {
+        "inputs": {
+          "method": "POST",
+          "uri": "https://management.azure.com/subscriptions/{subscription-id}/resourceGroups/{resource-group}/providers/Microsoft.Network/azureFirewalls/{firewall-name}/providers/Microsoft.Network/firewallPolicies/{policy-name}?api-version=2020-11-01",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "properties": {
+              "ruleCollections": [
+                {
+                  "name": "BlockSuspiciousIP",
+                  "rules": [
+                    {
+                      "ruleType": "NetworkRule",
+                      "name": "BlockIP",
+                      "ipProtocols": ["Any"],
+                      "sourceAddresses": ["{{triggerBody().IPAddress}}"],
+                      "destinationAddresses": ["*"],
+                      "destinationPorts": ["*"]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Post_message_to_Slack": ["Succeeded"]
+        },
+        "type": "Http"
+      }
+    },
+    "triggers": {
+      "When_a_response_to_an_Azure_Sentinel_alert_is_triggered": {
+        "inputs": {
+          "schema": {}
+        },
+        "type": "Request"
+      }
+    }
+  },
+  "kind": "Stateful"
+}
