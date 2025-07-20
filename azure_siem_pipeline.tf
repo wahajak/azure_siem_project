@@ -2,8 +2,10 @@ variable "subscription_id" {
   description = "Azure Subscription ID"
   type        = string
 }
+
 provider "azurerm" {
   features {}
+  subscription_id = var.subscription_id
 }
 
 resource "azurerm_resource_group" "rg" {
